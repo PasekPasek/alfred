@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.output/
+
+# Environment files (contain API keys)
+.env
+.env.*
+!.env.example
+
+# Local credentials from setup wizard
+.credentials.json
+
+# Database and runtime data
+apps/server/var/
+
+# OS artifacts
+.DS_Store
+__MACOSX/
+
+# Logs
+*.log
