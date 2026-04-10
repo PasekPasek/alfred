@@ -229,3 +229,63 @@ Dla celów osobistych lokalne uruchomienie w zupełności wystarcza. Wystarczy `
 | `apps/server/var/workspaces/` | Cyfrowy ogród (notatki markdown) |
 | `ecosystem.config.cjs` | PM2 config do deploymentu |
 | `setup/index.mjs` | Interaktywny wizard instalacji |
+
+---
+
+## Dalszy rozwój (po wdrożeniu)
+
+### 1. Telegram Bot — rozmowa z agentem przez telefon
+
+Prosty bridge: Telegram Bot API → Wonderlands API. Piszesz do bota, agent odpowiada.
+
+```
+Ty → Telegram Bot → webhook na VPS → POST /v1/sessions → Alfred → odpowiedź → Telegram
+```
+
+**Co potrzeba:**
+- Zarejestrować bota przez @BotFather → dostać `TELEGRAM_BOT_TOKEN`
+- Napisać ~100 linii Node.js (webhook + wywołanie Wonderlands API)
+- Postawić obok Alfreda na tym samym VPS
+
+**Zalety:** działa na telefonie bez otwierania przeglądarki, powiadomienia push, można pisać głosowo (Telegram → transkrypcja → agent).
+
+---
+
+### 2. Synchronizacja notatek z Obsidian (Syncthing)
+
+```
+Alfred VPS (var/workspaces/) ←──► Syncthing ←──► Laptop ←──► Telefon Android
+```
+
+**Co potrzeba:**
+- Zainstalować Syncthing na VPS i na każdym urządzeniu
+- Syncthing-Fork na Androidzie (darmowy)
+- Obsidian mobile otwiera zsynchronizowany folder jako vault
+
+---
+
+### 3. Agenty treningowe
+
+Agent z `agent_profile` scope który:
+- Pyta codziennie wieczorem o wyniki treningu (cron → Telegram)
+- Pamięta historię między sesjami
+- Po miesiącu analizuje trendy i sugeruje zmiany
+
+---
+
+### 4. Daily Briefing audio
+
+Agent codziennie rano (cron):
+- Zbiera plan dnia z Google Calendar
+- Zbiera niezakończone zadania z Linear
+- Generuje podsumowanie przez ElevenLabs (audio)
+- Wysyła plik audio przez Telegram
+
+---
+
+### 5. Agenci do nauki (AI_devs4 Coach)
+
+Agent z dostępem do cyfrowego ogrodu który:
+- Pamięta Twój postęp w kursie (agent_profile)
+- Robi active recall — pyta o materiał z ostatniego tygodnia
+- Debuguje zadania znając Twój poziom i kontekst poprzednich lekcji
