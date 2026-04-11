@@ -17,6 +17,16 @@ Cyfrowy ogród: `http://127.0.0.1:5173/wonderlands`
 
 ## Deployment — VPS (mikr.us 3.5: 4 GB RAM, 40 GB, 197 zł/rok)
 
+### Ważne — ustaw WORKSPACE_ROOT przed pierwszym setupem
+
+W `apps/server/.env` (lub przez wizard) ustaw ścieżkę workspace **zanim** uruchomisz `npm run setup`:
+
+```
+WORKSPACE_ROOT=/home/ubuntu/alfred/apps/server/var/workspaces
+```
+
+Ten folder będzie synchronizowany przez Syncthing z Obsidianem. Zmiana ścieżki po fakcie wymaga rekonfiguracji Syncthing — lepiej ustalić ją raz.
+
 ### PM2
 
 ```bash
@@ -105,12 +115,25 @@ Alfred VPS (var/workspaces/) ←── Syncthing ──► Laptop ──► Tele
 ```bash
 # Na VPS:
 curl -s https://install.syncthing.net/syncthing.sh | bash
-syncthing &
-# W GUI (:8384): dodaj folder apps/server/var/workspaces/, dodaj laptop przez Device ID
+systemctl --user enable syncthing
+systemctl --user start syncthing
+# GUI na :8384 — dostępne tylko lokalnie (nie wystawiaj publicznie przez Nginx)
+# Dodaj folder: ~/alfred/apps/server/var/workspaces/
+# Dodaj urządzenie: wklej Device ID z laptopa
+
+# Na laptopie:
+# Zainstaluj Syncthing, połącz przez Device ID z VPS
+# Zsynchronizowany folder otwórz w Obsidian jako vault
 
 # Na Androidzie:
 # Syncthing-Fork (F-Droid lub Play Store)
 # Zsynchronizowany folder → otwórz w Obsidian Mobile jako vault
+```
+
+Syncthing GUI dostępne przez tunel SSH gdy potrzebujesz konfigurować:
+```bash
+ssh -L 8384:localhost:8384 ubuntu@VPS_IP
+# Potem otwórz http://localhost:8384 na laptopie
 ```
 
 ---
@@ -147,9 +170,42 @@ Zapisuj kluczowe wnioski do /knowledge/.
 
 ## Roadmap
 
-### 1. n8n jako scheduler i event bus
+### 1. n8n — scheduler i event bus
 
-Alfred nie ma wbudowanego crona — n8n wypełnia tę lukę jako **system nerwowy**. Na mikr.us 3.5 oba mieszczą się bez problemu.
+Alfred nie ma wbudowanego crona — n8n wypełnia tę lukę jako **system nerwowy**. Dodajesz go na tym samym VPS po wdrożeniu Alfreda — zero planowania z góry.
+
+**Instalacja na VPS (Docker Compose):**
+```bash
+mkdir ~/n8n && cd ~/n8n
+cat > docker-compose.yml << 'EOF'
+services:
+  n8n:
+    image: n8nio/n8n
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5678:5678"
+    volumes:
+      - ~/.n8n:/home/node/.n8n
+    environment:
+      - N8N_HOST=n8n.twojadomena.pl
+      - WEBHOOK_URL=https://n8n.twojadomena.pl/
+EOF
+docker compose up -d
+```
+
+Nginx vhost dla n8n — osobna subdomena (`n8n.twojadomena.pl`), osobny `certbot`. Zero konfliktu z Alfredem.
+
+**Szacowane RAM po dodaniu wszystkiego:**
+
+| Serwis | RAM |
+|--------|-----|
+| Alfred (server + client) | ~300 MB |
+| n8n (Docker) | ~400 MB |
+| Syncthing | ~50 MB |
+| Nginx + OS | ~150 MB |
+| **Razem** | **~900 MB / 4 GB** |
+
+**Punkt integracji z Alfredem:**
 
 **Punkt integracji:**
 ```bash
