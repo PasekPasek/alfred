@@ -1,291 +1,229 @@
-# Plan: Uruchomienie i deployment Wonderlands
+# Alfred — Setup i Roadmap
 
-## Context
-
-Wonderlands to produkcyjna platforma agentowa z S05E05 (Nowa Rzeczywistość / Vibe Coding). Użytkownik chce ją uruchomić lokalnie i/lub zdeployować jako osobistego asystenta AI do nauki, ćwiczeń z AI_devs4 i zarządzania projektami pobocznymi.
-
-Kod źródłowy: `tasks/s05e05/wonderlands-1775780610/`  
-Stack: Hono backend + Svelte frontend + SQLite + Drizzle ORM + MCP servers + Docker (opcjonalnie dla Kernel sandbox)
-
----
-
----
-
-## Co to jest Wonderlands
-
-Produkcyjna platforma agentowa z interfejsem czatu, cyfrowym ogrodem, sandbox'iem do wykonywania kodu i systemem MCP. Stworzona przez autora AI_devs4 w kilkanaście dni z pomocą AI (Vibe Coding). Klucz: **agent ma dostęp do "cyfrowego ogrodu"** — bazy wiedzy w plikach markdown, publikowanej jako strona WWW.
-
-Możliwości dla użytkownika:
-- Chat z wieloma agentami (delegacja do specjalistów)
-- Zarządzanie wiedzą (notatki markdown + Obsidian + strona WWW)
-- Wykonywanie kodu w sandbox (Node.js) z zatwierdzaniem
-- Integracja zewnętrznych narzędzi przez MCP (Linear, Gmail, Google Calendar, Firecrawl, YouTube, Replicate, ElevenLabs itd.)
-- Background tasks — sesje przez API, bez UI
-- Trwała pamięć agenta (observations, reflections, agent_profile scope)
-
----
-
-## Krok 1 — Nowe repo (boilerplate)
-
-Projekt wydzielamy jako oddzielne repo pod `/home/ppasek/projects/alfred`.
+## Uruchomienie lokalne
 
 ```bash
-# Skopiuj projekt z ai_devs4 do docelowej lokalizacji
-cp -r ~/projects/ai_devs4/tasks/s05e05/wonderlands-1775780610 ~/projects/alfred
-cd ~/projects/alfred
-
-# Usuń artefakty z archiwum ZIP i zainicjuj nowe repo
-rm -rf .git __MACOSX
-git init
-git add .
-git commit -m "feat: initial alfred setup (based on wonderlands)"
-
-# Podłącz do nowego repo na GitHub (utwórz wcześniej na github.com)
-gh repo create alfred --private --source=. --push
+npm run setup       # wizard: .env, klucze API, konto, baza danych
+npm run kernel:up   # opcjonalnie: Docker + Chromium browser sandbox
+npm run dev         # client → :5173, server → :3000
 ```
 
-**Wymagania do uruchomienia:** Node.js 18+, npm, co najmniej jeden klucz API  
-**Docker:** opcjonalny (tylko dla Kernel browser sandbox)
+Workspace z notatkami: `apps/server/var/workspaces/{tenant_id}/{account_id}/`
+Otwierasz w **Obsidian** jako vault.
+
+Cyfrowy ogród: `http://127.0.0.1:5173/wonderlands`
+
+---
+
+## Deployment — VPS (mikr.us 3.5: 4 GB RAM, 40 GB, 197 zł/rok)
+
+### PM2
 
 ```bash
-# Interaktywny wizard konfiguracji
-npm run setup
-# Generuje: apps/server/.env, .mcp-servers.json, MCP_SECRET_ENCRYPTION_KEY, konto lokalne
-
-# (Opcjonalnie) Kernel browser sandbox
-npm run kernel:up
-
-# Dev serwery
-npm run dev
-# client → http://127.0.0.1:5173
-# server → http://127.0.0.1:3000
-```
-
-Workspace z notatkami: `apps/server/var/workspaces/{tenant_id}/{account_id}/` — otwierasz w **Obsidian**.
-
----
-
-## Krok 2 — Konfiguracja MCP serverów
-
-Plik: `apps/server/.mcp-servers.json` (tworzony przez setup lub ręcznie z `.mcp-servers.example.json`)
-
-Dostępne serwery (wszystkie od autora AI_devs4, open source):
-| Serwer | Repo | Do czego |
-|--------|------|----------|
-| Linear | github.com/iceener/linear-streamable-mcp-server | Zarządzanie zadaniami |
-| Google Calendar | github.com/iceener/google-calendar-streamable-mcp-server | Planowanie |
-| Gmail | github.com/iceener/gmail-streamable-mcp-server | Emaile |
-| Firecrawl | github.com/iceener/firecrawl-streamable-mcp-server | Web scraping |
-| YouTube | github.com/iceener/youtube-streamable-mcp-server | Research z wideo |
-| Replicate | github.com/iceener/replicate-streamable-mcp-server | Generowanie obrazów |
-| ElevenLabs | github.com/iceener/elevenlabs-streamable-mcp-server | Audio TTS/STT |
-| Resend | github.com/iceener/resend-streamable-mcp-server | Wysyłanie emaili/newsletterów |
-| Spotify | github.com/iceener/spotify-streamable-mcp-server | Playlisty |
-
-Każdy server to osobne `npx` lub lokalne `node` w `.mcp-servers.json`.
-
----
-
-## Krok 2b — Obsidian + VPS: synchronizacja
-
-Obsidian działa na lokalnych plikach. Po deployu na VPS `var/workspaces/` jest na serwerze — potrzeba sync.
-
-**Rekomendowane: Syncthing (self-hosted, darmowe)**
-```bash
-# Na VPS:
-curl -s https://install.syncthing.net/syncthing.sh | bash
-syncthing --home=/home/user/.syncthing &
-# Dodaj folder: /home/user/wonderlands/apps/server/var/workspaces/
-
-# Na lokalnym komputerze:
-# Zainstaluj Syncthing, podłącz do VPS przez Device ID
-# Zsynchronizowany folder otwierasz w Obsidian jako vault
-```
-
-**Alternatywa: obsidian-git plugin**
-```bash
-# Na VPS: cron co 5 min
-*/5 * * * * cd ~/wonderlands && git add apps/server/var/workspaces && git commit -m "sync" && git push
-# Na kompie: obsidian-git plugin, pull co 5 min
-```
-
----
-
-## Krok 3 — Tworzenie osobistych agentów
-
-Agenty tworzy się z UI (http://127.0.0.1:5173) jako manifest w YAML frontmatter + markdown:
-
-```markdown
----
-description: "Agent do nauki i research"
-category: primary
-visibility: account_private
----
-
-Jesteś moim asystentem do nauki AI/ML.
-Masz dostęp do notatek w moim cyfrowym ogrodzie.
-Gdy pytam o temat — najpierw sprawdź notatki, potem sieć.
-Zapisuj kluczowe wnioski do ogrodu.
-```
-
-**Proponowane agenty dla potrzeb użytkownika:**
-
-1. **AI_devs4 Coach** (`agent_profile` scope — pamięta Twoje postępy między sesjami)
-   - Czyta notatki z lekcji z cyfrowego ogrodu
-   - Pamięta które zadania skończyłeś, co sprawiało trudność
-   - Wyjaśnia patterny, pomaga debugować, sugeruje co ćwiczyć dalej
-
-2. **Research Agent** — Firecrawl + YouTube + web_search
-   - Zbiera wiedzę z sieci, zapisuje wnioski do ogrodu
-   - Obserwacje trafiają do `session_shared` — dostępne dla innych agentów w tej samej sesji
-
-3. **Builder PM** — Linear + Google Calendar + delegate do Research
-   - Zarządza projektami pobocznymi (issues, deadline, notatki projektowe w ogrodzie)
-   - Deleguje research do Research Agenta
-
-4. **Daily Briefing** — Calendar + ElevenLabs
-   - Zbiera plan dnia + niezakończone zadania
-   - Generuje audio (spacer, commute)
-
-**Memory scopes w praktyce:**
-- `agent_profile` → agent pamięta Cię między sesjami ("Paweł uczy się AI engineering, aktualnie S05E05")
-- `session_shared` → Research agent i PM agent w jednej sesji dzielą kontekst
-- `thread_shared` → rozmowa o konkretnym projekcie ma spójny kontekst
-- Ogród → permanentna baza wiedzy dostępna dla wszystkich agentów
-
----
-
-## Krok 4 — Deployment (opcjonalny, dla dostępu 24/7)
-
-Wonderlands ma wbudowany `ecosystem.config.cjs` (PM2) i GitHub Actions workflow.
-
-### Opcja A: VPS / własny serwer (rekomendowane)
-
-```bash
-# Na serwerze:
-git clone git@github.com:<user>/wonderlands.git
-cd wonderlands
-npm install
-npm run setup   # lub ręczna konfiguracja .env
-
-# PM2 (process manager, restart przy awarii)
 npm install -g pm2
 pm2 start ecosystem.config.cjs
 pm2 save && pm2 startup
-
-# Nginx reverse proxy (client + server na jednym domenie)
-# /         → 127.0.0.1:5173 (Svelte dev) lub dist/ po build
-# /api/*    → 127.0.0.1:3000
-# /v1/*     → 127.0.0.1:3000
 ```
 
-**Ważne dla produkcji:**
-- `AUTH_MODE=api_key` lub `auth_session` — sprawdź `.env`
-- `CORS_ALLOW_ORIGINS` — dodaj swoją domenę
-- HTTPS przez Let's Encrypt (certbot)
-- Kernel browser sandbox wymaga Dockera na serwerze
+### Nginx
 
-**Koszty miesięczne (szacunek dla użytku osobistego):**
+```nginx
+server {
+    server_name alfred.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:5173;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+    }
+
+    location /v1/ {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Connection '';
+        proxy_buffering off;
+        proxy_cache off;
+    }
+}
+```
+
+```bash
+certbot --nginx -d alfred.example.com
+```
+
+W `.env`:
+```
+AUTH_MODE=api_key
+CORS_ALLOW_ORIGINS=https://alfred.example.com
+```
+
+### Koszty miesięczne
 
 | Składnik | Koszt |
 |----------|-------|
-| VPS mikr.us (1GB RAM, bez Docker) | ~12-15 PLN |
-| AI API (OpenRouter / Gemini Flash) | ~$1-5 USD |
-| Domena (opcjonalnie) | ~5 PLN (lub 0 jeśli IP) |
-| Langfuse tracing | free tier |
-| MCP servers (Linear, Gmail, etc.) | 0 (własne klucze API) |
-| Zewnętrzna baza danych | **0 — SQLite, plik lokalny** |
+| mikr.us 3.5 (4 GB RAM) | ~16 PLN (~197 zł/rok) |
+| AI API (OpenRouter/Gemini Flash) | ~$1–5 USD |
+| n8n (self-hosted, ten sam VPS) | 0 |
+| Strona wizytówka (Cloudflare Pages) | 0 |
+| MCP servers (własne klucze API) | 0 |
+| SQLite (plik lokalny) | 0 |
 
-**Kernel browser sandbox (Docker/Chromium):** potrzebuje 2GB+ RAM → droższy tier. Pomiń na start — dodaj gdy faktycznie będziesz potrzebował web automation. Alternatywa: `kernel.sh` cloud API (mają free tier).
-
-### Opcja B: GitHub Actions (CI/CD)
-
-Projekt ma wbudowany workflow. Krok z lekcji S05E01 — konfiguracja jak opisana w tamtej lekcji.
-
-### Opcja C: Tylko lokalnie (najprostsze)
-
-Dla celów osobistych lokalne uruchomienie w zupełności wystarcza. Wystarczy `npm run dev` i interfejs na `localhost:5173`.
+**Kernel (Docker + Chromium):** mieści się na 3.5 — uruchamiaj `npm run kernel:up` gdy potrzebujesz web automation.
 
 ---
 
-## Weryfikacja działania
+## MCP Servers
 
-1. `npm run dev` → otwórz `http://127.0.0.1:5173`
-2. Zaloguj się danymi z `.credentials.json` (lub z outputu `npm run setup`)
-3. Sprawdź cyfrowy ogród pod `/wonderlands`
-4. Utwórz agenta, wyślij wiadomość — powinno być streaming response
-5. Sprawdź czy MCP server działa: agent powinien mieć dostęp do skonfigurowanych narzędzi
-6. Otwórz `apps/server/var/workspaces/...` w Obsidian — powinny być widoczne notatki
+Konfiguracja: `apps/server/.mcp-servers.json` (setup wizard tworzy z `.mcp-servers.example.json`)
+
+| Serwer | Repo | Zastosowanie |
+|--------|------|--------------|
+| Linear | github.com/iceener/linear-streamable-mcp-server | Zadania, projekty |
+| Google Calendar | github.com/iceener/google-calendar-streamable-mcp-server | Kalendarz, dostępność |
+| Gmail | github.com/iceener/gmail-streamable-mcp-server | Wybrane etykiety, szkice |
+| Maps | github.com/iceener/maps-streamable-mcp-server | Trasy, miejsca |
+| Firecrawl | github.com/iceener/firecrawl-streamable-mcp-server | Web scraping (można lokalnie) |
+| YouTube | github.com/iceener/youtube-streamable-mcp-server | Research z wideo |
+| Replicate | github.com/iceener/replicate-streamable-mcp-server | Generowanie obrazów |
+| ElevenLabs | github.com/iceener/elevenlabs-streamable-mcp-server | TTS (briefing audio), STT |
+| Resend | github.com/iceener/resend-streamable-mcp-server | Emaile, newslettery |
+| Spotify | github.com/iceener/spotify-streamable-mcp-server | Playlisty, muzyka głosowo |
+| Video | github.com/iceener/video-stdio-mcp | Analiza wideo (Gemini) |
+| Tesla | github.com/iceener/tesla-streamable-mcp-server | Opcjonalne |
+
+Szablon własnego serwera: github.com/iceener/streamable-mcp-server-template
 
 ---
 
-## Pliki kluczowe
-
-| Plik | Rola |
-|------|------|
-| `apps/server/.env` | Wszystkie klucze API i konfiguracja serwera |
-| `apps/server/.mcp-servers.json` | Konfiguracja MCP serverów |
-| `apps/server/var/05_04_api.sqlite` | Baza danych (agenty, sesje, pamięć) |
-| `apps/server/var/workspaces/` | Cyfrowy ogród (notatki markdown) |
-| `ecosystem.config.cjs` | PM2 config do deploymentu |
-| `setup/index.mjs` | Interaktywny wizard instalacji |
-
----
-
-## Dalszy rozwój (po wdrożeniu)
-
-### 1. Telegram Bot — rozmowa z agentem przez telefon
-
-Prosty bridge: Telegram Bot API → Wonderlands API. Piszesz do bota, agent odpowiada.
+## Synchronizacja notatek — Obsidian + Syncthing
 
 ```
-Ty → Telegram Bot → webhook na VPS → POST /v1/sessions → Alfred → odpowiedź → Telegram
+Alfred VPS (var/workspaces/) ←── Syncthing ──► Laptop ──► Telefon Android
 ```
 
-**Co potrzeba:**
-- Zarejestrować bota przez @BotFather → dostać `TELEGRAM_BOT_TOKEN`
-- Napisać ~100 linii Node.js (webhook + wywołanie Wonderlands API)
-- Postawić obok Alfreda na tym samym VPS
+```bash
+# Na VPS:
+curl -s https://install.syncthing.net/syncthing.sh | bash
+syncthing &
+# W GUI (:8384): dodaj folder apps/server/var/workspaces/, dodaj laptop przez Device ID
 
-**Zalety:** działa na telefonie bez otwierania przeglądarki, powiadomienia push, można pisać głosowo (Telegram → transkrypcja → agent).
-
----
-
-### 2. Synchronizacja notatek z Obsidian (Syncthing)
-
-```
-Alfred VPS (var/workspaces/) ←──► Syncthing ←──► Laptop ←──► Telefon Android
+# Na Androidzie:
+# Syncthing-Fork (F-Droid lub Play Store)
+# Zsynchronizowany folder → otwórz w Obsidian Mobile jako vault
 ```
 
-**Co potrzeba:**
-- Zainstalować Syncthing na VPS i na każdym urządzeniu
-- Syncthing-Fork na Androidzie (darmowy)
-- Obsidian mobile otwiera zsynchronizowany folder jako vault
+---
+
+## Tworzenie agentów
+
+Manifest = YAML frontmatter + markdown system prompt (UI → Settings → Agents):
+
+```yaml
+---
+description: "AI_devs4 Coach"
+category: primary
+visibility: account_private
+model: default
+---
+
+Jesteś moim asystentem do nauki AI engineering.
+Pamiętasz mój postęp w kursie AI_devs4 (agent_profile scope).
+Gdy pytam o temat — najpierw sprawdź notatki w /knowledge/, potem sieć.
+Zapisuj kluczowe wnioski do /knowledge/.
+```
+
+**Rekomendowane agenty:**
+
+| Agent | Scope | Narzędzia | Do czego |
+|-------|-------|-----------|----------|
+| AI_devs4 Coach | agent_profile | garden + web_search | Nauka, active recall, debugowanie zadań |
+| Daily Briefing | session_shared | Calendar + ElevenLabs | Plan dnia → audio |
+| Research | session_shared | Firecrawl + YouTube | Zbieranie wiedzy z sieci |
+| Builder PM | session_shared | Linear + Calendar + delegate | Projekty, zadania |
+| Training | agent_profile | garden + Telegram | Śledzenie treningu |
 
 ---
 
-### 3. Agenty treningowe
+## Roadmap
 
-Agent z `agent_profile` scope który:
-- Pyta codziennie wieczorem o wyniki treningu (cron → Telegram)
-- Pamięta historię między sesjami
-- Po miesiącu analizuje trendy i sugeruje zmiany
+### 1. n8n jako scheduler i event bus
+
+Alfred nie ma wbudowanego crona — n8n wypełnia tę lukę jako **system nerwowy**. Na mikr.us 3.5 oba mieszczą się bez problemu.
+
+**Punkt integracji:**
+```bash
+POST /v1/sessions/bootstrap
+Authorization: Bearer $API_TOKEN
+X-Tenant-Id: $TENANT_ID
+{ "initialMessage": "...", "target": { "kind": "agent", "agentId": "agt_..." } }
+```
+
+**Przypadki użycia:**
+
+*Daily Briefing (cron 05:00):*
+```
+Schedule trigger (05:00)
+  ├── HTTP → Alfred Calendar Agent: "Zbierz kalendarz → /daily/calendar.md"
+  ├── HTTP → Alfred Mail Agent: "Zbierz ważne maile → /daily/mail.md"
+  └── HTTP → Alfred Newsfeed Agent: "Przegląd AI newsów → /daily/news.md"
+
+Wait node (05:45)
+  └── HTTP → Alfred Briefing Agent: "Przeczytaj /daily/*.md → audio ElevenLabs → Telegram"
+```
+
+*Reakcja na zdarzenia:*
+- Gmail trigger (nowy mail z etykietą) → Alfred analizuje, zapisuje do ogrodu
+- Linear webhook (nowe zadanie) → Alfred dodaje kontekst
+- RSS (HackerNews AI, co godzinę) → Alfred filtruje, zapisuje do `/knowledge/`
+
+*Alfred → n8n:*
+Agent w sandboxie może `fetch` webhook n8n gdy skończy zadanie (np. gotowe audio → Telegram).
+
+*Monitoring i retry:*
+n8n ma historię wykonań, retry, powiadomienia o błędach — Alfred nie ma nic z tego natywnie.
 
 ---
 
-### 4. Daily Briefing audio
+### 2. Telegram Bot
 
-Agent codziennie rano (cron):
-- Zbiera plan dnia z Google Calendar
-- Zbiera niezakończone zadania z Linear
-- Generuje podsumowanie przez ElevenLabs (audio)
-- Wysyła plik audio przez Telegram
+Bridge: Telegram Bot API → Alfred API. Piszesz do bota, agent odpowiada.
+
+```
+Ty → Telegram → webhook → POST /v1/sessions → Alfred → Telegram
+```
+
+- Bot przez @BotFather → `TELEGRAM_BOT_TOKEN`
+- ~100 linii Node.js: webhook + wywołanie API + odpowiedź
+- Obsługuje załączniki audio (ElevenLabs output)
+- Powiadomienia push z background tasks
 
 ---
 
-### 5. Agenci do nauki (AI_devs4 Coach)
+### 3. Strona wizytówka
 
-Agent z dostępem do cyfrowego ogrodu który:
-- Pamięta Twój postęp w kursie (agent_profile)
-- Robi active recall — pyta o materiał z ostatniego tygodnia
-- Debuguje zadania znając Twój poziom i kontekst poprzednich lekcji
+Oddzielnie od Alfreda — **Cloudflare Pages** (darmowe, zero konfiguracji serwera):
+- Static HTML/CSS lub Astro
+- Własna domena → CNAME na Cloudflare Pages
+
+---
+
+### 4. Cron system (wbudowany)
+
+Aktualnie: zewnętrzny cron + curl lub n8n.
+Docelowo: wbudowany scheduler w Alfredzie (feature gap wymieniony w lekcji).
+
+```bash
+# Tymczasowo — systemowy cron jako alternatywa dla n8n:
+0 5 * * * curl -s -X POST http://127.0.0.1:3000/v1/sessions/bootstrap \
+  -H "Authorization: Bearer $TOKEN" -H "X-Tenant-Id: $TENANT" \
+  -H "Content-Type: application/json" \
+  -d '{"initialMessage":"daily briefing","target":{"kind":"agent","agentId":"agt_..."}}'
+```
+
+---
+
+### 5. Aplikacja mobilna
+
+Natywna app lub skrót do `https://alfred.example.com` na telefonie.
+Połączenie z siecią domową (Wi-Fi disconnect) jako trigger daily briefing.
