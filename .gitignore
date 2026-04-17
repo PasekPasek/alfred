@@ -10,6 +10,11 @@ dist/
 .env.*
 !.env.example
 
+# MCP server secrets (node_modules, built output, local .env files)
+mcp/*/.env
+mcp/*/node_modules/
+mcp/*/dist/
+
 # Local credentials from setup wizard
 .credentials.json
 

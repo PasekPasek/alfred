@@ -24,5 +24,14 @@ module.exports = {
         NODE_ENV: 'production',
       },
     },
+    {
+      name: 'mcp-youtube',
+      cwd: `${__dirname}/mcp/youtube`,
+      script: 'src/index.ts',
+      interpreter: 'tsx',
+      interpreterArgs: '--env-file .env',
+      autorestart: true,
+      time: true,
+    },
   ],
 }
