@@ -21,6 +21,7 @@ jobs:
             git checkout -- . 2>/dev/null || true
             git clean -f apps/server/.mcp-servers.json 2>/dev/null || true
             git pull origin master
+            rm -rf apps/client/node_modules
             npm ci
 
             # MCP server dependencies
