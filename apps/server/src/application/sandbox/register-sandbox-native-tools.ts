@@ -388,12 +388,17 @@ export const registerSandboxNativeTools = (
       return queued
     }
 
+    const sandboxWaitTimeoutAt = new Date(
+      Date.now() + Math.max(sandboxPolicy.runtime.maxDurationSec, 600) * 1000,
+    ).toISOString()
+
     return ok({
       kind: 'waiting' as const,
       wait: {
         description: `Waiting for sandbox execution ${queued.value.execution.id}`,
         targetKind: 'external' as const,
         targetRef: `sandbox_execution:${queued.value.execution.id}`,
+        timeoutAt: sandboxWaitTimeoutAt,
         type: 'tool' as const,
       },
     })

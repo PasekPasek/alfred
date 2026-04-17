@@ -63,6 +63,7 @@ interface ServerRegistration {
 }
 
 interface ConnectedServerState {
+  callQueue: Promise<void>
   client: ReturnType<typeof createMcpClientBundle>['client'] | null
   connectionKey: string
   discoveredToolCount: number
@@ -1026,6 +1027,7 @@ export const createMcpGateway = (input: {
     }
 
     const state: ConnectedServerState = {
+      callQueue: Promise.resolve(),
       client: null,
       connectionKey,
       discoveredToolCount: 0,
@@ -1202,8 +1204,8 @@ export const createMcpGateway = (input: {
         toolCallId: correlationKey,
       })
 
-      try {
-        const result = await state.client.callTool(
+      const doCall = () =>
+        state.client!.callTool(
           {
             ...(Object.keys(traceMeta).length > 0 ? { _meta: traceMeta } : {}),
             arguments: normalizedArgs,
@@ -1211,6 +1213,24 @@ export const createMcpGateway = (input: {
           },
           CallToolResultSchema,
         )
+
+      try {
+        let result: CallToolResult
+        if (state.transport instanceof StdioClientTransport) {
+          const prevQueue = state.callQueue
+          let releaseQueue!: () => void
+          state.callQueue = new Promise<void>((resolve) => {
+            releaseQueue = resolve
+          })
+          try {
+            await prevQueue
+            result = await doCall()
+          } finally {
+            releaseQueue()
+          }
+        } else {
+          result = await doCall()
+        }
 
         if (!('content' in result)) {
           return err({
