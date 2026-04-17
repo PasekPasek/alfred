@@ -18,6 +18,8 @@ jobs:
           script: |
             set -e
             cd ~/alfred
+            git checkout -- . 2>/dev/null || true
+            git clean -f apps/server/.mcp-servers.json 2>/dev/null || true
             git pull origin master
             npm ci
 
