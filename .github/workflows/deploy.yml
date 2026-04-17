@@ -8,7 +8,32 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to VPS via SSH
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build client
+        run: npm run build --workspace @wonderlands/client
+
+      - name: Copy dist to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 10203
+          source: apps/client/dist/
+          target: /root/alfred/
+
+      - name: Deploy server on VPS
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.VPS_HOST }}
@@ -21,14 +46,13 @@ jobs:
             git checkout -- . 2>/dev/null || true
             git clean -f apps/server/.mcp-servers.json 2>/dev/null || true
             git pull origin master
-            npm install
 
             # MCP server dependencies
-            cd mcp/youtube && npm ci && cd ../..
-            cd mcp/firecrawl && npm ci && cd ../..
+            cd mcp/youtube && npm install && cd ../..
+            cd mcp/firecrawl && npm install && cd ../..
 
-            # Build client
-            npm run build --workspace @wonderlands/client
+            # Server dependencies only
+            npm install --workspace @wonderlands/server --workspace @wonderlands/contracts
 
             # Reload all processes
             pm2 reload ecosystem.config.cjs --update-env
